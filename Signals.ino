@@ -4,7 +4,7 @@
  * Tristan Leavitt
  */
 //******STANDARD SIGNAL BLOCK CODE*********//
-const float VERSION = 1.406;
+const float VERSION = 1.407;
 
 #define DEBUG
 //#define DEBUGV
@@ -970,18 +970,22 @@ void loop()
         else if (shouldWake(id, trans.destination, trans.aspect))
         {
           led = 0;
-          digitalWrite(GREEN, LOW);
-          aspect = 'G';
-          Green = true;
-
-          led = analogRead(GREEN);
-          if (led < 50 || led > 500)
+          
+          if(aspect == 'G' || aspect == 'X')
           {
-            out = true;
-          }
-          else
-          {
-            out = false;
+            digitalWrite(GREEN, LOW);
+            aspect = 'G';
+            Green = true;
+  
+            led = analogRead(GREEN);
+            if (led < 50 || led > 500)
+            {
+              out = true;
+            }
+            else
+            {
+              out = false;
+            }
           }
 
           if (NODEID == 17 && (aspectW == 'H' || aspectW == 'X'))
@@ -1002,10 +1006,8 @@ void loop()
               outW = false;
             }
           }
+          
           changed = true;
-
-          transmission.isCode = false;
-
           dimCount = 0;
           dimTime = millis();
           sleepWait = millis();
