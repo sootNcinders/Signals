@@ -94,8 +94,6 @@ typedef struct
                 *New aspect for right head on signal bridge: Q - red, B - amber, H - green
                 *If isCode is true
                 *A - Amber LED out
-                *B - Battery good reset - **needs implementing**
-                *b - Battery low alarm - **needs implementing**
                 *C - Remote capture
                 *D - Remote release
                 *G - Green LED out
@@ -106,6 +104,8 @@ typedef struct
                 *s - Switch Diverging
                 *T - Switch 2 Main
                 *t - Switch 2 Diverging 
+                *V - Battery good reset - **needs implementing**
+                *v - Battery low alarm - **needs implementing**
                 */
 } RCL;
 RCL transmission; // The packet
