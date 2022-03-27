@@ -4,13 +4,13 @@
  * Tristan Leavitt
  */
 //******STANDARD SIGNAL BLOCK CODE*********//
-const float VERSION = 1.407;
+const float VERSION = 1.500;
 
-#define DEBUG
-//#define DEBUGV
+#define DEBUG 1
+//#define DEBUGV 1
 
 #ifdef DEBUGV
-#define DEBUG
+#define DEBUG 1
 #endif
 
 #include <RH_RF95.h>
@@ -76,7 +76,7 @@ uint8_t sState = 2;
 uint8_t sState2 = 2;
 
 const int LISTEN = 80;  //how many milliseconds the radio will listen for a response before retrying
-const int RETRIES = 20; //how many retries to make before giving up
+const int RETRIES = 10; //how many retries to make before giving up
 
 RH_RF95 radio; //The radio itself
 RHDatagram manager(radio, NODEID);
@@ -409,7 +409,7 @@ void setup()
   case 20:
     DESTID = 19;
 
-    AUTORELEASE = 999; //Dwarf shouldnt auto release
+    AUTORELEASE = 50; //Dwarf shouldnt auto release, but timer set to clear if other heads go out
 
     DIM = 450; //60min
     rRetry = false;
@@ -420,7 +420,7 @@ void setup()
   case 21:
     DESTID = 18;
 
-    AUTORELEASE = 999; //Dwarf shouldnt auto release
+    AUTORELEASE = 50; //Dwarf shouldnt auto release, but timer set to clear if other heads go out
 
     DIM = 450; //60min
 
@@ -497,128 +497,258 @@ void loop()
         //Check that datagram's destination ID is this node or is the broadcast address and this is not a control code
         if (transmission.destination == NODEID && !transmission.isCode)
         {
-          if (NODEID == 17 && id == DESTIDW)
+          led = 0;
+          switch(transmission.aspect)
           {
-            //reset the packet's voltage to this nodes voltage
-            //transmission.voltage = volt;
-
-            //variable for analog return from LED to check for functionality
-            led = 0;
-            switch (transmission.aspect)
-            {
-            //Green case. Change head to green if it was not amber, otherwise start 8sec wait to go green
             case 'G':
               if (!transmission.isACK)
               {
                 transmit(id, 'G', true, false);
               }
+
+              if(NODEID == 17 && id == DESTIDW)
+              {
+                if(transmission.isACK)
+                {
+                  transmit(20, 'G', true, false);
+                }
+
+                if (!AmberW || rwRetry)
+                {
+                  digitalWrite(GREENW, LOW);
+                  digitalWrite(AMBERW, HIGH);
+                  digitalWrite(REDW, HIGH);
+                  LOCKW = false;
+
+                  aspectW = 'H';
+
+                  led = analogRead(GREENW);
+
+                  //Mark as changed to trigger a CTC update
+                  changedW = true;
+                }
+
+                //stop retrying to release
+                rwRetry = false;
+
+                GreenW = true;
+              }
               else
               {
-                transmit(20, 'G', true, false);
+                if ((NODEID == 18 || NODEID == 17) && id != 21 && transmission.isACK)
+                {
+                  transmit(21, 'G', true, false);
+                }
+                else if (NODEID == 19 && id != 20 && transmission.isACK)
+                {
+                  transmit(20, 'G', true, false);
+                }
+
+                if (!Amber || rRetry)
+                {
+                  digitalWrite(GREEN, LOW);
+                  digitalWrite(AMBER, HIGH);
+                  digitalWrite(RED, HIGH);
+                  LOCK = false;
+
+                  aspect = 'G';
+
+                  led = analogRead(GREEN);
+
+                  //Mark as changed to trigger a CTC update
+                  changed = true;
+                }
+
+                //stop retrying to release
+                rRetry = false;
+
+                if ((id == 20 || id == 21) && NODEID != 17)
+                {
+                  rRetry = true;
+                }
+
+                Green = true;
+                dwarfLock = false;
               }
 
-              if (!AmberW || rwRetry)
-              {
-                digitalWrite(GREENW, LOW);
-                digitalWrite(AMBERW, HIGH);
-                digitalWrite(REDW, HIGH);
-                LOCKW = false;
-
-                aspectW = 'H';
-
-                led = analogRead(GREENW);
-
-                //Mark as changed to trigger a CTC update
-                changedW = true;
-              }
-
-              //stop retrying to release
-              rwRetry = false;
               retry = 0;
-
-              GreenW = true;
               break;
 
-            //Amber case. Set the signal head to amber, and set control locks to prevent other captures
             case 'A':
               if (!transmission.isACK)
               {
                 transmit(id, 'R', true, false);
               }
+
+              if(NODEID == 17 && id == DESTIDW)
+              {
+                if(transmission.isACK)
+                {
+                  transmit(20, 'R', true, false);
+                }
+                digitalWrite(GREENW, HIGH);
+                digitalWrite(AMBERW, LOW);
+                digitalWrite(REDW, HIGH);
+                AmberW = true;
+                GreenW = false;
+                LOCKW = true;
+
+                //stop retrying to capture
+                cRetry = false;
+                retry = 0;
+
+                aspectW = 'B';
+
+                led = analogRead(AMBERW);
+
+                //Mark as changed to trigger a CTC update
+                changedW = true;
+              }
               else
               {
-                transmit(20, 'R', true, false);
+                if (!dwarfLock)
+                {
+                  if (!transmission.isACK)
+                  {
+                    transmit(id, 'R', true, false);
+                  }
+
+                  if ((NODEID == 18 || NODEID == 17) && transmission.isACK && !dwarfLock)
+                  {
+                    transmit(21, 'R', true, false);
+                  }
+                  else if (NODEID == 19 && transmission.isACK && !dwarfLock)
+                  {
+                    transmit(20, 'R', true, false);
+                  }
+                  digitalWrite(GREEN, HIGH);
+                  digitalWrite(AMBER, LOW);
+                  digitalWrite(RED, HIGH);
+                  Amber = true;
+                  Green = false;
+                  LOCK = true;
+
+                  aspect = 'A';
+
+                  led = analogRead(AMBER);
+                }
+                else
+                {
+                  transmit(id, 'R', true, false);
+                }
+                //stop retrying to capture
+                cRetry = false;
+
+                //Mark as changed to trigger a CTC update
+                changed = true;
               }
-              digitalWrite(GREENW, HIGH);
-              digitalWrite(AMBERW, LOW);
-              digitalWrite(REDW, HIGH);
-              AmberW = true;
-              GreenW = false;
-              LOCKW = true;
 
-              //stop retrying to capture
-              cRetry = false;
               retry = 0;
-
-              aspectW = 'B';
-
-              led = analogRead(AMBERW);
-
               dimCount = 0;
               dimTime = millis();
 
-              //Mark as changed to trigger a CTC update
-              changedW = true;
               break;
 
-            //Red case. Set head to red and set control lock to prevent captures
             case 'R':
               if (!transmission.isACK)
               {
                 transmit(id, 'A', true, false);
               }
+              
+              if(NODEID == 17 && id == DESTIDW)
+              {
+                if(transmission.isACK)
+                {
+                  transmit(20, 'R', true, false);
+                }
+                digitalWrite(GREENW, HIGH);
+                digitalWrite(AMBERW, HIGH);
+                digitalWrite(REDW, LOW);
+                GreenW = false;
+                AmberW = false;
+                LOCKW = true;
+
+                if (cRetry && sState == 1)
+                {
+                  cRetry = false;
+                }
+
+                rwRetry = false;
+
+                retry = 0;
+
+                aspectW = 'Q';
+
+                led = analogRead(REDW);
+
+                changedW = false;
+              }
               else
               {
-                transmit(20, 'R', true, false);
+                dwarfC = false;
+
+                if ((NODEID == 18 || NODEID == 17) && id != 21 && transmission.isACK && !dwarfLock)
+                {
+                  transmit(21, 'R', true, false);
+                }
+                else if (NODEID == 19 && id != 20 && transmission.isACK && !dwarfLock)
+                {
+                  transmit(20, 'R', true, false);
+                }
+
+                if (NODEID == 21 || NODEID == 20)
+                {
+                  dwarfC = cRetry;
+                }
+                if ((Green || !(Green || Amber)) && !dwarfC && !(NODEID > id && cRetry))
+                {
+                  if (!transmission.isACK)
+                  {
+                    transmit(id, 'A', true, false);
+                  }
+                  digitalWrite(GREEN, HIGH);
+                  digitalWrite(AMBER, HIGH);
+                  digitalWrite(RED, LOW);
+                  Green = false;
+                  Amber = false;
+                  LOCK = true;
+
+                  if (cRetry && (NODEID == 21 || id > NODEID || (NODEID == 17 && sState == 0)))
+                  {
+                    cRetry = false;
+                  }
+
+                  rRetry = false;
+
+                  retry = 0;
+
+                  aspect = 'R';
+
+                  led = analogRead(RED);
+                }
+                else
+                {
+                  transmit(id, 'R', true, false);
+                }
+
+                changed = false;
+
+                if ((id == 20 || id == 21) && NODEID != 17)
+                {
+                  cRetry = true;
+                  LOCK = false;
+                  dwarfLock = true;
+                }
               }
-              digitalWrite(GREENW, HIGH);
-              digitalWrite(AMBERW, HIGH);
-              digitalWrite(REDW, LOW);
-              GreenW = false;
-              AmberW = false;
-              LOCKW = true;
-
-              if (cRetry && sState == 1)
-              {
-                cRetry = false;
-              }
-
-              rwRetry = false;
-
-              retry = 0;
-
-              aspectW = 'Q';
-
-              led = analogRead(REDW);
 
               dimCount = 0;
               dimTime = millis();
 
-              changedW = false;
               break;
-            }
+          }
 
-            sleepWait = millis();
-            startRX();
-
-            #ifdef DEBUG
-            if (transmission.isACK)
-            {
-              Serial.print("Response time: ");Serial.println(millis() - t);
-            }
-
-            Serial.print("LED: ");Serial.println(led);
-            #endif
+          if (NODEID == 17 && id == DESTIDW)
+          {
             if (led < 50 || led > 500)
             {
               outW = true;
@@ -630,170 +760,6 @@ void loop()
           }
           else
           {
-            //variable for analog return from LED to check for functionality
-            led = 0;
-            switch (transmission.aspect)
-            {
-            //Green case. Change head to green if it was not amber, otherwise start 8sec wait to go green
-            case 'G':
-              if (!transmission.isACK)
-              {
-                transmit(id, 'G', true, false);
-              }
-              if (!Amber || rRetry)
-              {
-                digitalWrite(GREEN, LOW);
-                digitalWrite(AMBER, HIGH);
-                digitalWrite(RED, HIGH);
-                LOCK = false;
-
-                aspect = 'G';
-
-                led = analogRead(GREEN);
-
-                //Mark as changed to trigger a CTC update
-                changed = true;
-              }
-
-              if ((NODEID == 18 || NODEID == 17) && id != 21 && transmission.isACK)
-              {
-                transmit(21, 'G', true, false);
-              }
-              else if (NODEID == 19 && id != 20 && transmission.isACK)
-              {
-                transmit(20, 'G', true, false);
-              }
-
-              //stop retrying to release
-              rRetry = false;
-              retry = 0;
-
-              if ((id == 20 || id == 21) && NODEID != 17)
-              {
-                rRetry = true;
-              }
-
-              Green = true;
-              dwarfLock = false;
-              break;
-
-            //Amber case. Set the signal head to amber, and set control locks to prevent other captures
-            case 'A':
-              if (!dwarfLock)
-              {
-                if (!transmission.isACK)
-                {
-                  transmit(id, 'R', true, false);
-                }
-                digitalWrite(GREEN, HIGH);
-                digitalWrite(AMBER, LOW);
-                digitalWrite(RED, HIGH);
-                Amber = true;
-                Green = false;
-                LOCK = true;
-
-                aspect = 'A';
-
-                led = analogRead(AMBER);
-
-                if ((NODEID == 18 || NODEID == 17) && transmission.isACK && !dwarfLock)
-                {
-                  transmit(21, 'R', true, false);
-                }
-                else if (NODEID == 19 && transmission.isACK && !dwarfLock)
-                {
-                  transmit(20, 'R', true, false);
-                }
-
-                dimCount = 0;
-                dimTime = millis();
-              }
-              else
-              {
-                transmit(id, 'R', true, false);
-              }
-              //stop retrying to capture
-              cRetry = false;
-
-              //Mark as changed to trigger a CTC update
-              changed = true;
-
-              retry = 0;
-              break;
-
-            //Red case. Set head to red and set control lock to prevent captures
-            case 'R':
-              dwarfC = false;
-              if (NODEID == 21 || NODEID == 20)
-              {
-                dwarfC = cRetry;
-              }
-              if ((Green || !(Green || Amber)) && !dwarfC && !(NODEID > id && cRetry))
-              {
-                if (!transmission.isACK)
-                {
-                  transmit(id, 'A', true, false);
-                }
-                digitalWrite(GREEN, HIGH);
-                digitalWrite(AMBER, HIGH);
-                digitalWrite(RED, LOW);
-                Green = false;
-                Amber = false;
-                LOCK = true;
-
-                if (cRetry && (NODEID == 21 || id > NODEID || (NODEID == 17 && sState == 0)))
-                {
-                  cRetry = false;
-                }
-
-                rRetry = false;
-
-                retry = 0;
-
-                aspect = 'R';
-
-                led = analogRead(RED);
-              }
-              else
-              {
-                transmit(id, 'R', true, false);
-              }
-
-              if ((NODEID == 18 || NODEID == 17) && id != 21 && transmission.isACK && !dwarfLock)
-              {
-                transmit(21, 'R', true, false);
-              }
-              else if (NODEID == 19 && id != 20 && transmission.isACK && !dwarfLock)
-              {
-                transmit(20, 'R', true, false);
-              }
-
-              dimCount = 0;
-              dimTime = millis();
-
-              changed = false;
-
-              if ((id == 20 || id == 21) && NODEID != 17)
-              {
-                cRetry = true;
-                LOCK = false;
-                dwarfLock = true;
-              }
-              break;
-            }
-
-            sleepWait = millis();
-            startRX();
-
-            #ifdef DEBUG
-            if (transmission.isACK)
-            {
-              Serial.print("Response time: ");Serial.println(millis() - t);
-            }
-
-            Serial.print("LED: ");Serial.println(led);
-            #endif
-
             if (led < 50 || led > 500)
             {
               out = true;
@@ -803,6 +769,8 @@ void loop()
               out = false;
             }
           }
+
+          sleepWait = millis();
         }
         else if ((NODEID == 21 && (id == 18 || (id == 17 && trans.destination == 18))) || (NODEID == 20 && (id == 19 || (id == 17 && trans.destination == 19))))
         {
@@ -1047,6 +1015,29 @@ void loop()
   //After a set number retries, give up
   if (retry >= RETRIES)
   {
+    if(rRetry && dimCount >= AUTORELEASE)
+    {
+      digitalWrite(GREEN, LOW);
+      digitalWrite(AMBER, HIGH);
+      digitalWrite(RED, HIGH);
+      LOCK = false;
+
+      aspect = 'G';
+
+      changed = true;
+    }
+    else if(rwRetry && dimCount >= AUTORELEASE)
+    {
+      digitalWrite(GREENW, LOW);
+      digitalWrite(AMBERW, HIGH);
+      digitalWrite(REDW, HIGH);
+      LOCKW = false;
+
+      aspectW = 'H';
+
+      changedW = true;
+    }
+
     cRetry = false;
     rRetry = false;
     rwRetry = false;
