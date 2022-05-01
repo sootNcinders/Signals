@@ -4,7 +4,7 @@
  * Tristan Leavitt
  */
 //******STANDARD SIGNAL BLOCK CODE*********//
-const float VERSION = 1.500;
+const float VERSION = 2.000;
 
 #define DEBUG 1
 //#define DEBUGV 1
@@ -119,9 +119,6 @@ volatile bool changedW = false;
 volatile bool sw1Changed = false;
 volatile bool sw2Changed = false;
 
-bool out = false;
-bool outW = false;
-
 //Control locks
 volatile bool LOCK = false; //Lockout capture whisker if aspect is R or A
 volatile bool LOCKW = false;
@@ -165,7 +162,6 @@ uint8_t id = 0;
 uint8_t to = 0;
 uint8_t len = sizeof(transmission);
 int rssi = 0;
-int led = 0;
 bool state = 0;
 char in = ' ';
 
@@ -363,8 +359,8 @@ void setup()
     pinMode(AMBERW, OUTPUT);
     pinMode(REDW, OUTPUT);
 
-    digitalWrite(AMBERW, HIGH);
-    digitalWrite(REDW, HIGH);
+    digitalWrite(AMBERW, LOW);
+    digitalWrite(REDW, LOW);
 
     rwRetry = true;
 
@@ -446,9 +442,9 @@ void setup()
   radio.setTxPower(20, false);
 
   //Set signal head to green
-  digitalWrite(GREEN, LOW);
-  digitalWrite(AMBER, HIGH);
-  digitalWrite(RED, HIGH);
+  digitalWrite(GREEN, HIGH);
+  digitalWrite(AMBER, LOW);
+  digitalWrite(RED, LOW);
 
   attachInterrupt(digitalPinToInterrupt(BUTTON), wake, HIGH);
 
@@ -497,7 +493,6 @@ void loop()
         //Check that datagram's destination ID is this node or is the broadcast address and this is not a control code
         if (transmission.destination == NODEID && !transmission.isCode)
         {
-          led = 0;
           switch(transmission.aspect)
           {
             case 'G':
@@ -515,14 +510,12 @@ void loop()
 
                 if (!AmberW || rwRetry)
                 {
-                  digitalWrite(GREENW, LOW);
-                  digitalWrite(AMBERW, HIGH);
-                  digitalWrite(REDW, HIGH);
+                  digitalWrite(GREENW, HIGH);
+                  digitalWrite(AMBERW, LOW);
+                  digitalWrite(REDW, LOW);
                   LOCKW = false;
 
                   aspectW = 'H';
-
-                  led = analogRead(GREENW);
 
                   //Mark as changed to trigger a CTC update
                   changedW = true;
@@ -546,14 +539,12 @@ void loop()
 
                 if (!Amber || rRetry)
                 {
-                  digitalWrite(GREEN, LOW);
-                  digitalWrite(AMBER, HIGH);
-                  digitalWrite(RED, HIGH);
+                  digitalWrite(GREEN, HIGH);
+                  digitalWrite(AMBER, LOW);
+                  digitalWrite(RED, LOW);
                   LOCK = false;
 
                   aspect = 'G';
-
-                  led = analogRead(GREEN);
 
                   //Mark as changed to trigger a CTC update
                   changed = true;
@@ -586,9 +577,9 @@ void loop()
                 {
                   transmit(20, 'R', true, false);
                 }
-                digitalWrite(GREENW, HIGH);
-                digitalWrite(AMBERW, LOW);
-                digitalWrite(REDW, HIGH);
+                digitalWrite(GREENW, LOW);
+                digitalWrite(AMBERW, HIGH);
+                digitalWrite(REDW, LOW);
                 AmberW = true;
                 GreenW = false;
                 LOCKW = true;
@@ -598,8 +589,6 @@ void loop()
                 retry = 0;
 
                 aspectW = 'B';
-
-                led = analogRead(AMBERW);
 
                 //Mark as changed to trigger a CTC update
                 changedW = true;
@@ -621,16 +610,14 @@ void loop()
                   {
                     transmit(20, 'R', true, false);
                   }
-                  digitalWrite(GREEN, HIGH);
-                  digitalWrite(AMBER, LOW);
-                  digitalWrite(RED, HIGH);
+                  digitalWrite(GREEN, LOW);
+                  digitalWrite(AMBER, HIGH);
+                  digitalWrite(RED, LOW);
                   Amber = true;
                   Green = false;
                   LOCK = true;
 
                   aspect = 'A';
-
-                  led = analogRead(AMBER);
                 }
                 else
                 {
@@ -661,9 +648,9 @@ void loop()
                 {
                   transmit(20, 'R', true, false);
                 }
-                digitalWrite(GREENW, HIGH);
-                digitalWrite(AMBERW, HIGH);
-                digitalWrite(REDW, LOW);
+                digitalWrite(GREENW, LOW);
+                digitalWrite(AMBERW, LOW);
+                digitalWrite(REDW, HIGH);
                 GreenW = false;
                 AmberW = false;
                 LOCKW = true;
@@ -678,8 +665,6 @@ void loop()
                 retry = 0;
 
                 aspectW = 'Q';
-
-                led = analogRead(REDW);
 
                 changedW = false;
               }
@@ -706,9 +691,9 @@ void loop()
                   {
                     transmit(id, 'A', true, false);
                   }
-                  digitalWrite(GREEN, HIGH);
-                  digitalWrite(AMBER, HIGH);
-                  digitalWrite(RED, LOW);
+                  digitalWrite(GREEN, LOW);
+                  digitalWrite(AMBER, LOW);
+                  digitalWrite(RED, HIGH);
                   Green = false;
                   Amber = false;
                   LOCK = true;
@@ -723,8 +708,6 @@ void loop()
                   retry = 0;
 
                   aspect = 'R';
-
-                  led = analogRead(RED);
                 }
                 else
                 {
@@ -747,47 +730,21 @@ void loop()
               break;
           }
 
-          if (NODEID == 17 && id == DESTIDW)
-          {
-            if (led < 50 || led > 500)
-            {
-              outW = true;
-            }
-            else
-            {
-              outW = false;
-            }
-          }
-          else
-          {
-            if (led < 50 || led > 500)
-            {
-              out = true;
-            }
-            else
-            {
-              out = false;
-            }
-          }
-
           sleepWait = millis();
         }
         else if ((NODEID == 21 && (id == 18 || (id == 17 && trans.destination == 18))) || (NODEID == 20 && (id == 19 || (id == 17 && trans.destination == 19))))
         {
-          led = 0;
           switch (trans.aspect)
           {
             //Green case. Change head to green if it was not amber, otherwise start 8sec wait to go green
             case 'g':
             case 'G':
-              digitalWrite(GREEN, LOW);
-              digitalWrite(AMBER, HIGH);
-              digitalWrite(RED, HIGH);
+              digitalWrite(GREEN, HIGH);
+              digitalWrite(AMBER, LOW);
+              digitalWrite(RED, LOW);
               LOCK = false;
 
               aspect = 'G';
-
-              led = analogRead(GREEN);
 
               //Mark as changed to trigger a CTC update
               changed = true;
@@ -808,9 +765,9 @@ void loop()
             case 'R':
               if (!Amber && !cRetry)
               {
-                digitalWrite(GREEN, HIGH);
-                digitalWrite(AMBER, HIGH);
-                digitalWrite(RED, LOW);
+                digitalWrite(GREEN, LOW);
+                digitalWrite(AMBER, LOW);
+                digitalWrite(RED, HIGH);
                 Green = false;
                 Amber = false;
                 LOCK = true;
@@ -821,23 +778,12 @@ void loop()
 
                 aspect = 'R';
 
-                led = analogRead(RED);
-
                 changed = false;              
 
                 dimCount = 0;
                 dimTime = millis();
               }
               break;
-          }
-
-          if (led < 50 || led > 500)
-          {
-            out = true;
-          }
-          else
-          {
-            out = false;
           }
         }
 
@@ -870,37 +816,15 @@ void loop()
 
           //wake if asleep, and report back to CTC
           case 'W':
-            led = 0;
             if (aspect == 'G' || aspect == 'X')
             {
-              digitalWrite(GREEN, LOW);
+              digitalWrite(GREEN, HIGH);
               aspect = 'G';
-              led = analogRead(GREEN);
-
-              if (led < 50 || led > 500)
-              {
-                out = true;
-              }
-              else
-              {
-                out = false;
-              }
             }
             if (NODEID == 17 && (aspectW == 'H' || aspectW == 'X'))
             {
-              digitalWrite(GREENW, LOW);
+              digitalWrite(GREENW, HIGH);
               aspectW = 'H';
-
-              led = analogRead(GREENW);
-
-              if (led < 50 || led > 500)
-              {
-                outW = true;
-              }
-              else
-              {
-                outW = false;
-              }
             }
 
             if (id == CTC)
@@ -936,43 +860,20 @@ void loop()
           transmission.isCode = false;
         }
         else if (shouldWake(id, trans.destination, trans.aspect))
-        {
-          led = 0;
-          
+        {          
           if(aspect == 'G' || aspect == 'X')
           {
-            digitalWrite(GREEN, LOW);
+            digitalWrite(GREEN, HIGH);
             aspect = 'G';
             Green = true;
-  
-            led = analogRead(GREEN);
-            if (led < 50 || led > 500)
-            {
-              out = true;
-            }
-            else
-            {
-              out = false;
-            }
           }
 
           if (NODEID == 17 && (aspectW == 'H' || aspectW == 'X'))
           {
-            digitalWrite(GREENW, LOW);
+            digitalWrite(GREENW, HIGH);
             aspectW = 'H';
 
             GreenW = true;
-
-            led = analogRead(GREENW);
-
-            if (led < 50 || led > 500)
-            {
-              outW = true;
-            }
-            else
-            {
-              outW = false;
-            }
           }
           
           changed = true;
@@ -1017,9 +918,9 @@ void loop()
   {
     if(rRetry && dimCount >= AUTORELEASE)
     {
-      digitalWrite(GREEN, LOW);
-      digitalWrite(AMBER, HIGH);
-      digitalWrite(RED, HIGH);
+      digitalWrite(GREEN, HIGH);
+      digitalWrite(AMBER, LOW);
+      digitalWrite(RED, LOW);
       LOCK = false;
 
       aspect = 'G';
@@ -1028,9 +929,9 @@ void loop()
     }
     else if(rwRetry && dimCount >= AUTORELEASE)
     {
-      digitalWrite(GREENW, LOW);
-      digitalWrite(AMBERW, HIGH);
-      digitalWrite(REDW, HIGH);
+      digitalWrite(GREENW, HIGH);
+      digitalWrite(AMBERW, LOW);
+      digitalWrite(REDW, LOW);
       LOCKW = false;
 
       aspectW = 'H';
@@ -1104,7 +1005,7 @@ void loop()
       Green = true;
       dimCount = 0;
       dimTime = millis();
-      digitalWrite(GREEN, LOW);
+      digitalWrite(GREEN, HIGH);
     }
 
     if (NODEID == 17 && sState == 1 && !LOCKW)
@@ -1186,9 +1087,9 @@ void loop()
   //Return head to green and reset Amber, Green, and LOCK bits
   if ((dimCount >= 1) && Amber && Green)
   {
-    digitalWrite(GREEN, LOW);
-    digitalWrite(AMBER, HIGH);
-    digitalWrite(RED, HIGH);
+    digitalWrite(GREEN, HIGH);
+    digitalWrite(AMBER, LOW);
+    digitalWrite(RED, LOW);
     Amber = false;
     Green = true;
     LOCK = false;
@@ -1198,9 +1099,9 @@ void loop()
   }
   if (NODEID == 17 && (dimCount >= 1) && AmberW && GreenW)
   {
-    digitalWrite(GREENW, LOW);
-    digitalWrite(AMBERW, HIGH);
-    digitalWrite(REDW, HIGH);
+    digitalWrite(GREENW, HIGH);
+    digitalWrite(AMBERW, LOW);
+    digitalWrite(REDW, LOW);
     AmberW = false;
     GreenW = true;
     LOCKW = false;
@@ -1215,7 +1116,7 @@ void loop()
     #ifdef DEBUG
     Serial.println("Dimming...");
     #endif
-    digitalWrite(GREEN, HIGH);
+    digitalWrite(GREEN, LOW);
 
     aspect = 'X';
     changed = true;
@@ -1229,8 +1130,8 @@ void loop()
     #ifdef DEBUG
     Serial.println("Dimming...");
     #endif
-    digitalWrite(GREEN, HIGH);
-    digitalWrite(GREENW, HIGH);
+    digitalWrite(GREEN, LOW);
+    digitalWrite(GREENW, LOW);
 
     aspect = 'X';
     aspectW = 'X';
@@ -1239,8 +1140,6 @@ void loop()
     GreenW = true;
     Amber = false;
     AmberW = false;
-    out = false;
-    outW = false;
 
     retry = 0;
   }
@@ -1248,13 +1147,13 @@ void loop()
   //for two head boards, if one head is awake and the other isnt, wake the asleep one up.
   if (NODEID == 17 && aspect == 'X' && aspectW != 'X')
   {
-    digitalWrite(GREEN, LOW);
+    digitalWrite(GREEN, HIGH);
     aspect = 'G';
     Green = true;
   }
   else if (NODEID == 17 && aspect != 'X' && aspectW == 'X')
   {
-    digitalWrite(GREENW, LOW);
+    digitalWrite(GREENW, HIGH);
     aspectW = 'H';
     GreenW = true;
   }
@@ -1286,14 +1185,14 @@ void loop()
       Serial.println("Updating CTC");
       #endif
 
-      transmit(CTC, aspect, false, out);
+      transmit(CTC, aspect, false, false);
 
       retry++;
       sleepWait = millis();
     }
     else if (changedW)
     {
-      transmit(CTC, aspectW, false, outW);
+      transmit(CTC, aspectW, false, false);
 
       retry++;
       sleepWait = millis();
